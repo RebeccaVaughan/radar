@@ -239,6 +239,10 @@
     border:1px solid var(--line-strong);background:#fff;color:var(--muted);}
   .seg[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;}
   .daychips{display:flex;gap:6px;}
+  .weekpick{display:flex;align-items:center;gap:10px;}
+  .weekpick .wk{border:1px solid var(--line-strong);background:#fff;border-radius:8px;padding:6px 11px;font-size:14px;color:var(--ink);}
+  .weekpick .wk:hover{border-color:var(--brand);color:var(--brand);}
+  .weekpick #mWeekLabel{flex:1 1 auto;text-align:center;font-family:var(--mono);font-size:12.5px;color:var(--muted);}
   .daychip{flex:1 1 0;text-align:center;padding:7px 0;border-radius:8px;font-family:var(--mono);font-size:12px;
     border:1px solid var(--line-strong);background:#fff;color:var(--muted);}
   .daychip[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:#fff;}
@@ -292,8 +296,8 @@
       <button id="viewWeek" aria-pressed="false">Week</button>
     </div>
     <div class="spacer"></div>
-    <div class="stat over" title="This week's tasks still to do"><b id="statWeek">0</b> this week</div>
-    <button class="btn primary" id="newTaskBtn">+ New task</button>
+    <div class="stat over" title="Tasks left to do this week vs total scheduled"><b id="statWeek">0/0</b> tasks remaining this week</div>
+    <button class="btn primary" id="newTaskBtn">+ New</button>
   </div>
 
   <div class="main">
@@ -337,8 +341,8 @@
     <div class="field">
       <label>Type</label>
       <div class="segs" id="kindSegs">
-        <button class="seg" data-kind="project" aria-pressed="true">Board task</button>
-        <button class="seg" data-kind="daily" aria-pressed="false">Daily / weekly</button>
+        <button class="seg" data-kind="project" aria-pressed="true">Project</button>
+        <button class="seg" data-kind="daily" aria-pressed="false">Task</button>
       </div>
     </div>
 
@@ -347,17 +351,12 @@
       <input type="text" id="tTitle" placeholder="What needs doing?" />
     </div>
 
-    <div class="two">
+    <div id="progProjRow">
       <div class="field">
         <label for="tProgram">Program</label>
         <select id="tProgram"></select>
       </div>
-      <div class="field">
-        <label for="tProject">Project</label>
-        <select id="tProject"></select>
-      </div>
     </div>
-    <button class="inline-link" id="tNewProject">+ New project in this program</button>
 
     <!-- board-only -->
     <div id="boardFields">
@@ -376,15 +375,27 @@
         </div>
       </div>
       <div class="field">
-        <label>Steps <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— tap a weekday to drop a step into your week</span></label>
+        <label>Tasks <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— tap a weekday to drop a task into your week</span></label>
         <div class="steps-box" id="stepsBox"></div>
-        <button class="add-step" id="addStepBtn">+ Add step</button>
+        <button class="add-step" id="addStepBtn">+ Add task</button>
       </div>
     </div>
 
-    <!-- daily-only -->
+    <!-- daily-only (a "step") -->
     <div id="dailyFields" style="display:none">
-      <div class="field">
+      <div class="field" id="parentField">
+        <label for="tParentTask">Part of a project (optional)</label>
+        <select id="tParentTask"></select>
+      </div>
+      <div class="field" id="whenField">
+        <label>Scheduled week</label>
+        <div class="weekpick">
+          <button type="button" class="wk" id="mWeekPrev" aria-label="Earlier week">‹</button>
+          <span id="mWeekLabel"></span>
+          <button type="button" class="wk" id="mWeekNext" aria-label="Later week">›</button>
+        </div>
+      </div>
+      <div class="field" id="dayField">
         <label>Day</label>
         <div class="daychips" id="dayChips"></div>
       </div>
@@ -657,26 +668,23 @@
   const projsOf=pid=>state.projects.filter(p=>p.programId===pid);
 
   function seed(){
-    const bio={id:"bio",name:"Biodiversity",color:"#3e8e63"};
-    const met={id:"met",name:"Methodology",color:"#2b5fa8"};
-    const tech={id:"tech",name:"Tech",color:"#c26a2f"};
-    state.programs=[bio,met,tech];
-    const pjField={id:uid(),name:"Field season 2026",programId:"bio"};
-    const pjStart={id:uid(),name:"Getting started",programId:"met"};
-    const pjPlat={id:uid(),name:"Platform",programId:"tech"};
-    state.projects=[pjField,pjStart,pjPlat];
+    const p1={id:"p1",name:"Program 1",color:"#3e8e63"};
+    const p2={id:"p2",name:"Program 2",color:"#2b5fa8"};
+    const p3={id:"p3",name:"Program 3",color:"#c26a2f"};
+    state.programs=[p1,p2,p3];
+    state.projects=[];
     const wk=mondayOf(new Date());
     const wedISO=isoDate(addDays(wk,2));
     state.tasks=[
-      {id:uid(),kind:"project",title:"Take the board for a spin",notes:"Drag me between columns.",programId:"met",projectId:pjStart.id,status:"doing",due:null,
-        steps:[{id:uid(),text:"Drag this card to another column",done:false,scheduledDate:null},
-               {id:uid(),text:"Schedule this step onto Wednesday →",done:false,scheduledDate:wedISO}],createdAt:Date.now()},
-      {id:uid(),kind:"project",title:"Draft monitoring plan",notes:"",programId:"bio",projectId:pjField.id,status:"todo",due:isoDate(addDays(new Date(),5)),
-        steps:[{id:uid(),text:"List target species",done:false,scheduledDate:null},{id:uid(),text:"Define transects",done:false,scheduledDate:null}],createdAt:Date.now()-1},
-      {id:uid(),kind:"project",title:"Fix data export bug",notes:"",programId:"tech",projectId:pjPlat.id,status:"todo",due:null,steps:[],createdAt:Date.now()-2},
-      {id:uid(),kind:"daily",title:"Review inbox & triage",notes:"",programId:"met",projectId:null,scheduledDate:nextWeekdayISO(),day:null,done:false,createdAt:Date.now()-3},
-      // recurring template
-      {id:uid(),kind:"template",isTemplate:true,title:"Weekly team stand-up",notes:"",programId:"met",projectId:null,
+      {id:uid(),kind:"project",title:"Project 1",notes:"Drag me between columns.",programId:"p1",projectId:null,status:"doing",due:null,
+        steps:[{id:uid(),text:"Task 1",done:false,scheduledDate:null},
+               {id:uid(),text:"Task 2 (scheduled to Wednesday →)",done:false,scheduledDate:wedISO}],createdAt:Date.now()},
+      {id:uid(),kind:"project",title:"Project 2",notes:"",programId:"p2",projectId:null,status:"todo",due:isoDate(addDays(new Date(),5)),
+        steps:[{id:uid(),text:"Task 1",done:false,scheduledDate:null},{id:uid(),text:"Task 2",done:false,scheduledDate:null}],createdAt:Date.now()-1},
+      {id:uid(),kind:"project",title:"Project 3",notes:"",programId:"p3",projectId:null,status:"todo",due:null,steps:[],createdAt:Date.now()-2},
+      {id:uid(),kind:"daily",title:"Standalone task",notes:"",programId:"p2",projectId:null,scheduledDate:nextWeekdayISO(),day:null,done:false,createdAt:Date.now()-3},
+      // recurring
+      {id:uid(),kind:"template",isTemplate:true,title:"Recurring task",notes:"",programId:"p1",projectId:null,
         recur:{days:["mon","wed","fri"],interval:1},anchorDate:isoDate(wk),createdAt:Date.now()-4},
     ];
   }
@@ -731,10 +739,8 @@
   /* ---------- filtering ---------- */
   function matches(t){
     const f=state.ui.filter;
-    if(f.type==="all")return true;
     if(f.type==="program")return t.programId===f.id;
-    if(f.type==="project")return t.projectId===f.id;
-    return true;
+    return true; // "all"
   }
 
   /* ---------- render ---------- */
@@ -747,9 +753,12 @@
     // Always the real current Mon–Fri, independent of week-view navigation.
     const mon=mondayOf(new Date());
     const set=new Set(DAYS.map((d,i)=>isoDate(addDays(mon,i))));
-    const weekOpen=state.tasks.filter(t=>t.kind==="daily"&&!t.done&&set.has(t.scheduledDate)).length
-      + state.tasks.reduce((n,t)=>n+((t.steps||[]).filter(s=>!s.done&&set.has(s.scheduledDate)).length),0);
-    $("#statWeek").textContent=weekOpen;
+    let total=0, remaining=0;
+    state.tasks.forEach(t=>{
+      if(t.kind==="daily" && set.has(t.scheduledDate)){ total++; if(!t.done) remaining++; }
+      (t.steps||[]).forEach(s=>{ if(set.has(s.scheduledDate)){ total++; if(!s.done) remaining++; } });
+    });
+    $("#statWeek").textContent=remaining+"/"+total;
   }
 
   function renderSidebar(){
@@ -763,31 +772,13 @@
 
     state.programs.forEach(pg=>{
       const grp=document.createElement("div"); grp.className="prog-group";
-      const collapsed=!!state.ui.collapsed[pg.id];
       const cnt=state.tasks.filter(t=>!t.isTemplate&&t.programId===pg.id).length;
       const head=document.createElement("button");
-      head.className="prog-head"+(f.type==="program"&&f.id===pg.id?" active":"")+(collapsed?" collapsed":"");
-      head.innerHTML='<span class="caret">▾</span><span class="dot" style="background:'+pg.color+'"></span><span class="nm"></span><span class="ct">'+cnt+'</span><button class="edit" title="Edit">edit</button>';
+      head.className="prog-head"+(f.type==="program"&&f.id===pg.id?" active":"");
+      head.innerHTML='<span class="dot" style="background:'+pg.color+'"></span><span class="nm"></span><span class="ct">'+cnt+'</span><button class="edit" title="Edit">edit</button>';
       head.querySelector(".nm").textContent=pg.name;
       head.onclick=e=>{ if(e.target.classList.contains("edit")){e.stopPropagation();openProgram(pg.id);return;} setFilter({type:"program",id:pg.id}); };
-      head.querySelector(".caret").onclick=e=>{e.stopPropagation();state.ui.collapsed[pg.id]=!collapsed;saveData();renderSidebar();};
       grp.appendChild(head);
-      if(!collapsed){
-        const list=document.createElement("div"); list.className="proj-list";
-        projsOf(pg.id).forEach(pj=>{
-          const c=state.tasks.filter(t=>!t.isTemplate&&t.projectId===pj.id).length;
-          const b=document.createElement("button");
-          b.className="proj"+(f.type==="project"&&f.id===pj.id?" active":"");
-          b.innerHTML='<span class="nm"></span><span class="ct">'+c+'</span><button class="edit" title="Edit">edit</button>';
-          b.querySelector(".nm").textContent=pj.name;
-          b.onclick=e=>{ if(e.target.classList.contains("edit")){e.stopPropagation();openProject(pj.id);return;} setFilter({type:"project",id:pj.id}); };
-          list.appendChild(b);
-        });
-        const add=document.createElement("button"); add.className="add-proj"; add.textContent="+ project";
-        add.onclick=()=>openProject(null,pg.id);
-        list.appendChild(add);
-        grp.appendChild(list);
-      }
       nav.appendChild(grp);
     });
   }
@@ -795,10 +786,8 @@
 
   function filterTitle(){
     const f=state.ui.filter;
-    if(f.type==="all")return{html:"All programs"};
     if(f.type==="program"){const p=progById(f.id);return p?{html:'<span class="dot" style="background:'+p.color+'"></span>'+esc(p.name)}:{html:""};}
-    if(f.type==="project"){const p=projById(f.id);const g=p&&progById(p.programId);return p?{html:'<span class="dot" style="background:'+(g?g.color:"#ccc")+'"></span>'+esc(p.name)}:{html:""};}
-    return{html:""};
+    return{html:"All programs"};
   }
 
   function renderTools(){
@@ -879,12 +868,10 @@
       '<div class="card-actions"><button class="ed" aria-label="Edit">✎</button></div>'+
       '<div class="prog-label" style="color:'+(pg?pg.color:"var(--faint)")+'">'+esc(pg?pg.name:"")+'</div>'+
       '<p class="ttl"></p><div class="meta">'+
-      (pj?'<span class="chip"><span class="dot" style="background:'+(pg?pg.color:"#ccc")+'"></span><span class="nm"></span></span>':'')+
       (di?'<span class="due '+di.cls+'">◷ '+di.label+'</span>':'')+
       (steps.length?'<span class="steps-badge'+(scheduled?' hassched':'')+'">▤ '+doneSteps+'/'+steps.length+(scheduled?' · '+scheduled+' scheduled':'')+'</span>':'')+
       '</div><div class="move-row"><button class="mv" data-dir="-1" '+(idx===0?"disabled":"")+'>← '+(idx>0?STATUSES[idx-1].name:"")+'</button><button class="mv" data-dir="1" '+(idx===STATUSES.length-1?"disabled":"")+'>'+(idx<STATUSES.length-1?STATUSES[idx+1].name:"")+' →</button></div>';
     el.querySelector(".ttl").textContent=t.title;
-    if(pj)el.querySelector(".chip .nm").textContent=pj.name;
     el.addEventListener("dragstart",e=>{e.dataTransfer.setData("text/plain",t.id);e.dataTransfer.effectAllowed="move";el.classList.add("dragging");});
     el.addEventListener("dragend",()=>el.classList.remove("dragging"));
     el.querySelector(".ed").onclick=e=>{e.stopPropagation();openTask(t.id);};
@@ -952,12 +939,12 @@
   }
 
   function dailyItemEl(t){
-    const pg=progById(t.programId); const pj=t.projectId?projById(t.projectId):null;
+    const pg=progById(t.programId);
     const el=document.createElement("div"); el.className="witem"+(t.done?" done":""); el.draggable=true;
     el.innerHTML='<span class="wspine" style="background:'+(pg?pg.color:"#ccc")+'"></span>'+
       '<button class="cb" aria-label="Toggle done">'+CHECK+'</button><div class="wbody">'+
       '<div class="wtitle"></div><div class="wtags">'+
-      '<span class="tag"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+(pg?pg.color:"#ccc")+'"></span>'+esc(pj?pj.name:(pg?pg.name:""))+'</span>'+
+      '<span class="tag"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+(pg?pg.color:"#ccc")+'"></span>'+esc(pg?pg.name:"")+'</span>'+
       (t.templateId?'<span class="tag recur">↻ repeats</span>':'')+
       (t.carriedFrom?'<span class="tag carried">⤶ carried over</span>':'')+
       '</div></div>';
@@ -987,7 +974,20 @@
 
   /* ---------- task modal ---------- */
   const taskScrim=$("#taskScrim");
-  let editingId=null, modalKind="project", modalSteps=[], modalDay=null;
+  let editingId=null, modalKind="project", modalSteps=[], modalDay=null, modalWeekStart=null, parentLocked=false;
+
+  function fillParentSelect(val){
+    const sel=$("#tParentTask"); if(!sel) return;
+    const tasks=state.tasks.filter(t=>t.kind==="project");
+    sel.innerHTML='<option value="">No project — standalone task</option>'+tasks.map(t=>'<option value="'+t.id+'"></option>').join("");
+    Array.from(sel.options).forEach(o=>{ if(o.value){ const tk=state.tasks.find(x=>x.id===o.value); const pg=tk&&progById(tk.programId); o.textContent=(tk?tk.title:"")+(pg?" — "+pg.name:""); } });
+    if(val)sel.value=val;
+  }
+  function refreshProgProjVisibility(){
+    const daily = modalKind==="daily";
+    const parentSel = daily && $("#tParentTask") && $("#tParentTask").value;
+    const row=$("#progProjRow"); if(row) row.style.display = parentSel ? "none" : "";
+  }
 
   function fillProgramSelect(sel,val){ sel.innerHTML=state.programs.map(p=>'<option value="'+p.id+'"></option>').join("");
     Array.from(sel.options).forEach(o=>o.textContent=(progById(o.value)||{}).name||""); if(val)sel.value=val; }
@@ -1001,6 +1001,7 @@
     document.querySelectorAll("#kindSegs .seg").forEach(s=>s.setAttribute("aria-pressed",s.dataset.kind===k?"true":"false"));
     $("#boardFields").style.display=k==="project"?"":"none";
     $("#dailyFields").style.display=k==="daily"?"":"none";
+    refreshProgProjVisibility();
   }
   function buildDayChips(container,selected,single,onchange){
     container.innerHTML="";
@@ -1031,8 +1032,21 @@
   }
   function refreshRepeatUI(){
     const v=$("#tRepeat").value;
+    const single = v==="none";
+    $("#whenField").style.display=single?"":"none";
+    $("#dayField").style.display=single?"":"none";
+    // a repeating series can't be nested under a single task
+    $("#parentField").style.display=(single && !parentLocked)?"":"none";
     $("#repeatDaysField").style.display=v==="weekly"?"":"none";
     $("#intervalField").style.display=v==="weekly"?"":"none";
+  }
+  function updateWeekLabel(){
+    const mon=modalWeekStart, fri=isoDate(addDays(fromISO(mon),4));
+    let prefix="";
+    const cur=state.ui.weekStart;
+    if(mon===cur) prefix="This week · ";
+    else if(mon===isoDate(addDays(fromISO(cur),7))) prefix="Next week · ";
+    const el=document.getElementById("mWeekLabel"); if(el) el.textContent=prefix+fmtShort(mon)+" – "+fmtShort(fri);
   }
   function rebuildDayChips(){ buildDayChips($("#dayChips"),modalDay,true,k2=>{modalDay=k2;rebuildDayChips();}); }
   function rebuildRepeatDays(){ buildDayChips($("#repeatDays"),modalRepeatDays,false,k2=>{
@@ -1043,35 +1057,36 @@
   function openTask(id,preset){
     editingId=id||null; preset=preset||{};
     const t=id?state.tasks.find(x=>x.id===id):null;
-    $("#taskModalTitle").textContent=t?"Edit task":"New task";
-    // kind
-    const k=t?(t.kind==="project"?"project":"daily"):(preset.kind||(state.ui.view==="week"?"daily":"project"));
-    setKind(k);
+    const kind=t?(t.kind==="project"?"project":"daily"):(preset.kind||(state.ui.view==="week"?"daily":"project"));
+    $("#taskModalTitle").textContent = t ? (kind==="daily"?"Edit task":"Edit project") : (kind==="daily"?"New task":"New project");
+    setKind(kind);
     // allow switching kind only on create
     document.querySelectorAll("#kindSegs .seg").forEach(b=>b.disabled=!!t);
     $("#kindSegs").style.opacity=t?".55":"1";
-    // program/project
-    const defProg=(state.ui.filter.type==="program"&&state.ui.filter.id)|| (state.ui.filter.type==="project"&&projById(state.ui.filter.id)&&projById(state.ui.filter.id).programId) || state.programs[0].id;
+    // program
+    const defProg=(state.ui.filter.type==="program"&&state.ui.filter.id) || state.programs[0].id;
     const prog=t?t.programId:defProg;
     fillProgramSelect($("#tProgram"),prog);
-    fillProjectSelect(prog, t?t.projectId:(state.ui.filter.type==="project"?state.ui.filter.id:""));
     $("#tTitle").value=t?t.title:"";
     $("#tNotes").value=t?(t.notes||""):"";
-    // board fields
+    // project (board card) fields
     $("#tStatus").value=t&&t.kind==="project"?t.status:"todo";
     $("#tDue").value=t&&t.kind==="project"?(t.due||""):"";
     modalSteps=t&&t.kind==="project"?(t.steps||[]).map(s=>({...s})):[];
     renderStepsEditor();
-    // daily fields
-    modalDay=t&&t.kind==="daily"?t.day:(preset.scheduledDate?DAYS[dayIndexOfISO(preset.scheduledDate)].k:null);
-    if(t&&t.kind==="daily"&&t.scheduledDate) modalDay=DAYS[dayIndexOfISO(t.scheduledDate)].k;
-    window.__presetDate = preset.scheduledDate || (t&&t.scheduledDate) || null;
-    rebuildDayChips();
-    // repeat controls: only on create + daily
+    // step (daily) fields
+    modalDay=t&&t.kind==="daily"?(t.day||(t.scheduledDate?DAYS[dayIndexOfISO(t.scheduledDate)].k:DAYS[0].k)):(preset.scheduledDate?DAYS[dayIndexOfISO(preset.scheduledDate)].k:DAYS[0].k);
+    const baseDate=(t&&t.kind==="daily"&&t.scheduledDate)?t.scheduledDate:(preset.scheduledDate||state.ui.weekStart);
+    modalWeekStart=isoDate(mondayOf(fromISO(baseDate)));
+    rebuildDayChips(); updateWeekLabel();
+    // parent task (assign a step into a task)
+    parentLocked=!!(t&&t.templateId); // a recurring occurrence can't be re-parented
+    fillParentSelect("");
+    // repeat controls: only on create + step
     const canRepeat=!t;
     $("#repeatField").style.display=canRepeat?"":"none";
-    modalRepeatDays=[]; $("#tRepeat").value="none"; $("#tInterval").value="1"; refreshRepeatUI();
-    rebuildRepeatDays();
+    modalRepeatDays=[]; $("#tRepeat").value="none"; $("#tInterval").value="1";
+    rebuildRepeatDays(); refreshRepeatUI(); refreshProgProjVisibility();
     // series note + delete buttons
     $("#seriesNote").style.display=(t&&t.templateId)?"":"none";
     $("#tDeleteSeries").style.display=(t&&t.templateId)?"inline-block":"none";
@@ -1082,17 +1097,18 @@
   function closeTask(){taskScrim.classList.remove("open");editingId=null;}
 
   $("#kindSegs").onclick=e=>{const b=e.target.closest(".seg");if(b&&!b.disabled)setKind(b.dataset.kind);};
-  $("#tProgram").onchange=e=>fillProjectSelect(e.target.value,"");
   $("#tRepeat").onchange=refreshRepeatUI;
+  $("#tParentTask").onchange=refreshProgProjVisibility;
+  $("#mWeekPrev").onclick=()=>{modalWeekStart=isoDate(addDays(fromISO(modalWeekStart),-7));updateWeekLabel();};
+  $("#mWeekNext").onclick=()=>{modalWeekStart=isoDate(addDays(fromISO(modalWeekStart),7));updateWeekLabel();};
   $("#addStepBtn").onclick=()=>{modalSteps.push({id:uid(),text:"",done:false,scheduledDate:null});renderStepsEditor();
     const inputs=$("#stepsBox").querySelectorAll(".stext");if(inputs.length)inputs[inputs.length-1].focus();};
-  $("#tNewProject").onclick=()=>openProject(null,$("#tProgram").value,(newId)=>{ fillProjectSelect($("#tProgram").value,newId); });
   $("#newTaskBtn").onclick=()=>openTask(null);
   $("#tCancel").onclick=closeTask;
 
   $("#tSave").onclick=()=>{
     const title=$("#tTitle").value.trim(); if(!title){$("#tTitle").focus();return;}
-    const programId=$("#tProgram").value; const projectId=$("#tProject").value||null;
+    const programId=$("#tProgram").value; const projectId=null;
     const notes=$("#tNotes").value.trim();
     if(modalKind==="project"){
       const payload={kind:"project",title,notes,programId,projectId,status:$("#tStatus").value,due:$("#tDue").value||null,
@@ -1110,12 +1126,22 @@
         ensureRecurring(state.ui.weekStart);
       } else {
         const dayK = modalDay || DAYS[0].k;
-        let scheduledDate = window.__presetDate;
-        if(!scheduledDate){ const di=DAYS.findIndex(d=>d.k===dayK); scheduledDate=isoDate(addDays(fromISO(state.ui.weekStart),di)); }
-        else { const di=DAYS.findIndex(d=>d.k===dayK); scheduledDate=isoDate(addDays(fromISO(state.ui.weekStart),di)); }
-        const payload={kind:"daily",title,notes,programId,projectId,day:dayK,scheduledDate,done:false};
-        if(editingId){const t=state.tasks.find(x=>x.id===editingId);Object.assign(t,payload);}
-        else state.tasks.push(Object.assign({id:uid(),createdAt:Date.now()},payload));
+        const di=DAYS.findIndex(d=>d.k===dayK);
+        const scheduledDate=isoDate(addDays(fromISO(modalWeekStart),di));
+        const parentId = (!parentLocked && $("#tParentTask")) ? ($("#tParentTask").value||"") : "";
+        if(parentId){
+          const pt=state.tasks.find(x=>x.id===parentId);
+          if(pt){
+            const prev = editingId ? state.tasks.find(x=>x.id===editingId) : null;
+            const step={id:(prev?prev.id:uid()),text:title,done:prev?!!prev.done:false,scheduledDate,carriedFrom:prev?(prev.carriedFrom||null):null};
+            pt.steps=pt.steps||[]; pt.steps.push(step);
+            if(editingId){ state.tasks=state.tasks.filter(x=>x.id!==editingId); } // moved out of standalone
+          }
+        } else {
+          const payload={kind:"daily",title,notes,programId,projectId,day:dayK,scheduledDate};
+          if(editingId){const t=state.tasks.find(x=>x.id===editingId);Object.assign(t,payload);} // keeps done/carriedFrom/templateId
+          else state.tasks.push(Object.assign({id:uid(),createdAt:Date.now(),done:false},payload));
+        }
       }
     }
     saveData();render();closeTask();
@@ -1219,6 +1245,7 @@
       state=Object.assign({version:2,programs:[],projects:[],tasks:[],ui:{}},loaded);
       state.ui=Object.assign({view:"board",filter:{type:"all"},sort:"created",weekStart:null,collapsed:{}},loaded.ui||{});
     } else { seed(); }
+    if(state.ui.filter && state.ui.filter.type==="project") state.ui.filter={type:"all"}; // projects layer removed
     state.ui.weekStart=isoDate(mondayOf(new Date()));
     ensureRecurring(state.ui.weekStart);
     rollForward();
